@@ -1,27 +1,30 @@
-package my.proj;
+package my.proj.writer;
 
 import java.io.*;
+import java.util.Arrays;
 
 public class CustomWriter extends Writer {
 
     private PrintWriter out;
-    private int count;
 
-    private void isDisconnected() throws IOException {
-        if (out.checkError()) {
-            System.out.println("DISCONNECTED count = " + count++);
-            throw new IOException("Client disconnected");
-        }
+    public CustomWriter(PrintWriter out) {
+        this.out = out;
     }
 
-    public void setWriter(PrintWriter out) {
-        this.out = out;
+    private void isDisconnected() throws IOException {
+        System.out.println("Is disconnected start of method");
+        if (out.checkError()) {
+            System.out.println("DISCONNECTED");
+            throw new IOException("Client disconnected");
+        }
+        return ;
     }
 
     @Override
     public void write(char[] cbuf, int off, int len) throws IOException {
-        isDisconnected();
-        System.out.println("WRITE TO CLIENT");
+        System.out.println("WANT TO WRITE --> " + new String(cbuf));
+        //isDisconnected();
+        System.out.println("WRITE TO CLIENT --> " + new String(cbuf));
         out.write(cbuf, off, len);
     }
 

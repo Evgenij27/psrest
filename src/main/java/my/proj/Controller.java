@@ -1,5 +1,7 @@
 package my.proj;
 
+import my.proj.Manager;
+
 import javax.servlet.*;
 import javax.servlet.http.*;
 import javax.script.*;
@@ -8,25 +10,13 @@ import javax.servlet.annotation.*;
 import java.util.concurrent.*;
 import java.util.*;
 
-@WebServlet(urlPatterns={"/t"})
+@WebServlet(urlPatterns={"/t", "/t/*"})
 public class Controller extends HttpServlet {
 
-    private ScriptEngine engine = new ScriptEngineManager().getEngineByName("nashorn");
-    private CustomWriter writer = new CustomWriter();
+    private Manager manager;
 
-    private static synchronized String getCode(HttpServletRequest req) {
-        BufferedReader br = null;
-        StringBuffer sb = new StringBuffer();
-        String data = null;
-        try {
-            br = req.getReader();
-            while ((data = br.readLine()) != null) {
-                sb.append(data);
-            }
-        } catch (IOException ex) {
-            ex.printStackTrace();
-        }
-        return sb.toString();
+    public void init(ServletConfig conf) throws ServletException {
+        manager = new Manager();
     }
 
     @Override
@@ -51,38 +41,17 @@ public class Controller extends HttpServlet {
         }
         */
 
-        try(final PrintWriter servletWriter = response.getWriter()) {
-            servletWriter.println("START");
-            writer.setWriter(servletWriter);
-            try {
-                engine.getContext().setWriter(writer);
-                engine.eval("var x=1000; while(x--) {print('Hello JS! x = ' + x);}");
-            } catch (ScriptException e) {
-                writer.write(e.getMessage());
-            }
-            servletWriter.println("END");
-        } catch (IOException e) {
-            System.out.println(e.getMessage());
-            throw new ServletException(e);
-        }
+        manager.get(request, response);
+
     }
            
     @Override
     public void doPost(HttpServletRequest request, HttpServletResponse response) 
         throws IOException, ServletException {
 
-        try(final PrintWriter servletWriter = response.getWriter()) {
-            servletWriter.println("START");
-            writer.setWriter(servletWriter);
-            try {
-                engine.getContext().setWriter(writer);
-                engine.eval(getCode(request));
-            } catch (ScriptException e) {
-                writer.write(e.getMessage());
-            }
-
-            servletWriter.println("END");
-        }
+        System.out.println("I am alive!!!");
+        manager.post(request, response);
+        System.out.println("Done");
     }
 
     @Override
