@@ -13,7 +13,15 @@ import java.util.regex.Pattern;
 @WebFilter(servletNames={"Controller"}, urlPatterns={"/*"})
 public class URLParseFilter implements Filter {
 
-    private static final Pattern PATTERN = Pattern.compile("/\\w+/t/*(?<tid>[0-9]*)/*(?<action>([status|error])*)");
+    private static final String ACTION_PATTERN = 
+        "^/psrest/t/(?<!\\w+)(?<tid>\\d+)/(?<!status|error)(?<action>status|error)(?!\\w+)/*$"; 
+    private static final String ITEM_PATTERN = 
+        "^/psrest/t/(?<!\\w+)(?<tid>\\d+)(?!\\w+)/*$";
+
+    private static final String LIST_PATTERN =
+        "^/psrest/t/*$";
+    
+    private static Pattern PATTERN;
 
     @Override
     public void init(FilterConfig filterConfig) throws ServletException {
@@ -27,9 +35,12 @@ public class URLParseFilter implements Filter {
         HttpServletRequest httpRequest = (HttpServletRequest) servletRequest;
         HttpServletResponse httpResponse = (HttpServletResponse) servletResponse;
 
-        parseURL(httpRequest, httpResponse);
+        WrappedHttpServletRequest wrappedHttpRequest = 
+            new WrappedHttpServletRequest(httpRequest);
 
-        filterChain.doFilter(servletRequest, servletResponse);
+        parseURL(wrappedHttpRequest, httpResponse);
+
+        filterChain.doFilter(wrappedHttpRequest, servletResponse);
     }
 
     @Override
@@ -37,15 +48,40 @@ public class URLParseFilter implements Filter {
 
     }
 
-    private void parseURL(HttpServletRequest request, HttpServletResponse response) throws IOException {
-        String uri = request.getRequestURI();
-        Matcher matcher = PATTERN.matcher(uri);
-        if (matcher.find()) {
-            System.out.println("tid ==> " + matcher.group("tid"));
-            System.out.println("action ==> " + matcher.group("action"));
-        } else {
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+    private void parseURL(WrappedHttpServletRequest wrappedRequest, HttpServletResponse response)  throws IOException {
+
+        String uri = wrappedRequest.getRequestURI();
+        System.out.println(uri);
+       
+        PATTERN = Pattern.compile(ACTION_PATTERN);
+        Matcher m = PATTERN.matcher(uri);
+        if (m.find()) {
+            System.out.println("ACTION");
+            wrappedRequest.setAction(m.group("action"));
+            wrappedRequest.setTid(Integer.parseInt(m.group("tid")));
+            /*
+            System.out.println(m.group("action"));
+            System.out.println(m.group("tid"));
+            */
+            return;
         }
+        
+        PATTERN = Pattern.compile(ITEM_PATTERN);
+        m = PATTERN.matcher(uri);
+        if (m.find()) {
+            System.out.println("ITEM");
+            wrappedRequest.setTid(Integer.parseInt(m.group("tid")));
+            //System.out.println(m.group("tid"));
+            return;
+        }
+        PATTERN = Pattern.compile(LIST_PATTERN);
+        m = PATTERN.matcher(uri);
+        if (m.find()) {
+            System.out.println("LIST");
+            return;
+        }
+        
+        response.sendError(HttpServletResponse.SC_BAD_REQUEST);
     }
 }
 

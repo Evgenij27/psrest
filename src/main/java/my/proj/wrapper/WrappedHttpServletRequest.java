@@ -14,5 +14,20 @@ public class WrappedHttpServletRequest extends HttpServletRequestWrapper {
         super(request);
     }
 
+    public void setAction(String action) {
+        this.action = action;
+    }
+
+    public String getAction() {
+        return action;
+    }
+
+    public void setTid(int tid) {
+        this.tid = tid;
+    }
+
+    public int getTid() {
+        return tid;
+    }
 
 }

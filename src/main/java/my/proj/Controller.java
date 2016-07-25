@@ -1,6 +1,7 @@
 package my.proj;
 
 import my.proj.Manager;
+import my.proj.wrapper.WrappedHttpServletRequest;
 
 import javax.servlet.*;
 import javax.servlet.http.*;
@@ -9,6 +10,7 @@ import java.io.*;
 import javax.servlet.annotation.*;
 import java.util.concurrent.*;
 import java.util.*;
+
 
 @WebServlet(urlPatterns={"/t", "/t/*"})
 public class Controller extends HttpServlet {
@@ -40,9 +42,9 @@ public class Controller extends HttpServlet {
             }
         }
         */
-
-        manager.get(request, response);
-
+        WrappedHttpServletRequest wrappedRequest = (WrappedHttpServletRequest) request;
+       
+        manager.get(wrappedRequest, response);
     }
            
     @Override

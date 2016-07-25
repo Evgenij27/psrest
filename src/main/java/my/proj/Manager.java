@@ -3,6 +3,7 @@ package my.proj;
 import my.proj.factory.RunnableFactory;
 import my.proj.factory.ScriptData;
 import my.proj.writer.BuffWriter;
+import my.proj.wrapper.WrappedHttpServletRequest;
 
 import javax.script.ScriptContext;
 import javax.script.ScriptException;
@@ -18,6 +19,10 @@ import java.util.regex.Pattern;
 
 class Manager {
 
+    private static final String SCRIPT_COMPLETE = "Script %d is completed";
+
+    private static final String SCRIPT_WORKING = "Script %d is stil working";
+
     private static ConcurrentSkipListMap<Integer, ScriptData> scripts =
             new ConcurrentSkipListMap<>();
 
@@ -28,15 +33,39 @@ class Manager {
 
     private static RunnableFactory rsf = RunnableFactory.INSTANCE;
 
-    void get(HttpServletRequest request, HttpServletResponse response) throws IOException {
+    void get(WrappedHttpServletRequest wrappedRequest, HttpServletResponse response) 
+        throws IOException {
+
+        char[] data = null;
+        int tid = wrappedRequest.getTid();
+        String action = wrappedRequest.getAction();
+        
+        if (tid < 0) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+        }
+
+        if (action == null && tid == 0) {
+            data = get();
+        }
+
+        if (action == null && tid != 0) {
+            data = get(tid);
+        }
+        
+        if (action != null && tid != 0) {
+            data = get(tid, action);
+        }
 
         try (final PrintWriter writer = response.getWriter()) {
+           /*
             System.out.println("GET");
             System.out.print("Request URI ==> " + request.getRequestURI() + "\n");
             System.out.print("Request URL ==> "  + request.getRequestURL() + "\n");
             System.out.print("Context path ==> " + request.getContextPath());
-
-            parseURI(request, writer);
+           */
+                if (!writer.checkError()) {  
+                    writer.write(data);
+                } 
         }
     }
 
@@ -44,8 +73,9 @@ class Manager {
             throws IOException, ServletException {
 
         BuffWriter buff = new BuffWriter();
+        BuffWriter errBuff = new BuffWriter();
         ScriptContext context = new SimpleScriptContext();
-        context.setErrorWriter(buff);
+        context.setErrorWriter(errBuff);
         context.setWriter(buff);
         ScriptData scriptData = new ScriptData(context);
 
@@ -71,62 +101,37 @@ class Manager {
         }
     }
 
-    private void get(PrintWriter w) {
-        w.println("LIST");
-        w.print(scripts.toString());
+    private char[] get() {
+        
+        return scripts.toString().toCharArray();
     }
 
-    private void get(int tid, PrintWriter w) throws IOException {
-        ScriptData sd = scripts.get(tid);
-        BuffWriter writer = (BuffWriter) sd.getWriter();
-        writer.writeTo(w);
+    private char[] get(int tid) {
+        Writer w = scripts.get(tid).getWriter();
+        BuffWriter bw = (BuffWriter) w;
+        return bw.getBuff().toCharArray();         
     }
 
-    private void get(int tid, String action, PrintWriter w) throws IOException {
-        ScriptData sd = scripts.get(tid);
-        if (action.equals("errors")) {
-            BuffWriter writer = (BuffWriter) sd.getErrorWriter();
-            writer.writeTo(w);
+    private char[] get(int tid, String action) {
+        char[] result = null;
+        if (action.equals("error") && tid !=0) {
+            Writer w = scripts.get(tid).getErrorWriter();
+            BuffWriter bw = (BuffWriter) w;
+            result =  bw.getBuff().toCharArray();
+        }
+
+        if (action.equals("status") && tid != 0) {
+            result = getStatus(tid);
+        }        
+        return result;
+    }
+
+    private char[] getStatus(int tid) {
+        Future<?> future = scripts.get(tid).getFuture();
+        if (future.isDone()) {
+            return String.format(SCRIPT_COMPLETE, tid).toCharArray();
         } else {
-             w.print(sd.getFuture().isDone());
-        }
-    }
-
-    private void parseURI(HttpServletRequest request, PrintWriter w) throws IOException {
-
-        String result = null;
-
-        String requestUri = request.getRequestURI();
-        String contextPath = request.getContextPath();
-
-        Pattern listPattern = Pattern.compile(
-                new StringBuffer().append(contextPath).append("/t").toString());
-
-        Pattern itemPattern = Pattern.compile(
-                new StringBuffer().append(contextPath).
-                        append("/t").append("/(?<tid>[0-9])").toString());
-
-        Pattern actionPattern = Pattern.compile(
-                new StringBuffer().append(contextPath).append("/t").
-                        append("/(?<tid>[0-9])").append("/(?<action>status)").toString());
-
-        Matcher matcher = listPattern.matcher(request.getRequestURI());
-        if (matcher.matches()) {
-            get(w);
-        }
-        matcher = itemPattern.matcher(requestUri);
-        if (matcher.matches()) {
-            int tid = Integer.parseInt(matcher.group("tid"));
-            //System.out.println(tid);
-            //System.out.println(get(tid));
-            get(tid, w);
-        }
-        matcher = actionPattern.matcher(requestUri);
-        if (matcher.matches()) {
-            int tid = Integer.parseInt(matcher.group("tid"));
-
-            String action = matcher.group("action");
-            get(tid, action, w);
+            return String.format(SCRIPT_WORKING, tid).toCharArray();
         }
     }
 }
